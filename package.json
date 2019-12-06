@@ -1,0 +1,14 @@
+{
+  "name": "coin",
+  "version": "1.0.0",
+  "description": "Personal finance tracker",
+  "main": "coin.js",
+  "author": "Bán Dénes <mr@zealot.hu>",
+  "license": "MIT",
+  "dependencies": {
+    "js-yaml": "^3.13.1",
+    "moment": "^2.24.0",
+    "open": "^7.0.0",
+    "yargs": "^15.0.2"
+  }
+}
