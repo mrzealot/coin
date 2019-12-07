@@ -9,11 +9,73 @@ const readline = require('readline')
 
 let verbose = () => {}
 
+const usage = (msg = '', code = 1) => {
+    if (msg) {
+        console.log(msg)
+        console.log()
+    }
+    console.log(`Common arguments:`)
+    console.log(`  -c/--config: specify the config file to use`)
+    console.log(`  -i/--input: specify/override the input file`)
+    console.log()
+    console.log(`Commands:`)
+    console.log(`coin (c)onfig -- list all current config key/value pairs`)
+    console.log(`coin (c)onfig key -- print config for a specific key`)
+    console.log(`coin (c)onfig key value -- set key to value in the config`)
+    console.log()
+    console.log(`coin (r)esolve -- bring to canonical/sorted form and update database`)
+    console.log()
+    console.log(`coin (d)ump filename -- dump the internal representation`)
+    console.log()
+    console.log(`coin (v)iew -- dump and open an html based view`)
+    process.exit(code)
+}
 
 
+class Fund {
 
+    constructor(acc, amt) {
+        this.account = acc
+        this.amount = amt
+    }
+
+    format(num) {
+        return num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,')
+    }
+
+    stringify() {
+        return `${this.account.name.id}:${this.format(this.amount)}`
+    }
+
+    toJSON() {
+        return {
+            account: this.account.name.id,
+            amount: this.amount
+        }
+    }
+}
+
+class Category {
+
+    constructor(main, sub) {
+        this.main = main
+        this.sub = sub
+    }
+
+    stringify() {
+        return `${this.main.name.id}/${this.sub.id}`
+    }
+
+    toJSON() {
+        return {
+            main: this.main.name.id,
+            sub: this.sub.id
+        }
+    }
+}
 
 class Transaction {
+
     constructor(mark, date, from, to, comment, context) {
         this.mark = mark
         this.date = date
@@ -26,12 +88,22 @@ class Transaction {
     stringify() {
         const m = this.mark ? `[${this.mark}] ` : ''
         const d = this.date.format(this.context.format)
-        return `${m}`
+        const f = this.from.stringify()
+        const t = this.to.stringify()
+        const c = this.comment
+        return `${m}${d} ${f} ${t} ${c}\n`
+    }
+
+    toJSON() {
+        return {
+            mark: this.mark,
+            date: this.date,
+            from: this.from,
+            to: this.to,
+            comment: this.comment
+        }
     }
 }
-
-
-
 
 class Parser {
 
@@ -116,10 +188,7 @@ class Parser {
         } catch (ex) {
             throw new Error(`Invalid fund ${fund} on line ${this.lineno}`)
         }
-        return {
-            account: this.account(acc),
-            amount: this.amount(amt)
-        }
+        return new Fund(this.account(acc), this.amount(amt))
     }
 
     category(cat) {
@@ -134,7 +203,7 @@ class Parser {
         if (!main || !sub) {
             throw new Error(`Unknown category ${cat} on line ${this.lineno}`)
         }
-        return {main, sub}
+        return new Category(main, sub)
     }
 
     line(line) {
@@ -244,7 +313,13 @@ class Parser {
                 if (!in_yaml) {
                     const header = this.header(yaml.safeLoad(header_str))
                     this.context = this.combine(this.defaults, this.config, header, this.args)
-                    this.context.raw_header = header_str
+                    this.context.raw = {
+                        defaults: this.defaults,
+                        config: this.config,
+                        header,
+                        header_str,
+                        args: this.args
+                    }
                 }
                 continue
             }
@@ -265,16 +340,9 @@ class Parser {
     }
 }
 
-
-
-
-
-
-
 class Commander {
 
-    constructor(data) {
-        this.data = data
+    constructor(config, args) {
         this.aliases = {
             u: 'usage',
             c: 'config',
@@ -282,58 +350,72 @@ class Commander {
             d: 'dump',
             v: 'view'
         }
+        this.usage = usage
+        const valids = new Set(Object.values(this.aliases))
+
+        this.command = this.aliases[args._[0]] || args._[0]
+        if (!this.command) usage(`Missing command...`)
+        if (!valids.has(this.command)) usage(`Unknown command "${command}"`)
+
+        this.config_data = config
+        this.args = args
     }
 
-    usage(msg = '', code = 1) {
-        if (msg) {
-            console.log(msg)
-            console.log()
-        }
-        console.log(`Common arguments:`)
-        console.log(`  -c/--config: specify the config file to use`)
-        console.log(`  -i/--input: specify/override the input file`)
-        console.log()
-        console.log(`Commands:`)
-        console.log(`coin (c)onfig -- list all current config key/value pairs`)
-        console.log(`coin (c)onfig key -- print config for a specific key`)
-        console.log(`coin (c)onfig key value -- set key to value in the config`)
-        console.log()
-        console.log(`coin (r)esolve -- bring to canonical/sorted form and update database`)
-        console.log()
-        console.log(`coin (d)ump filename -- dump the internal representation`)
-        console.log()
-        console.log(`coin (v)iew -- dump and open an html based view`)
-        process.exit(code)
+    needs_input() {
+        return !['usage', 'config'].includes(this.command)
+    }
+
+    load(input_file, data) {
+        this.input_file = input_file
+        this.data = data
     }
 
     config() {
-
+        const conf = this.config_data
+        const [,key,val] = this.args._
+        if (key) {
+            if (val) {
+                conf[key] = val
+                fs.writeFileSync(this.args.config, yaml.safeDump(conf))
+                verbose(`Successfully set config key "${key}" to value "${val}"`)
+            } else {
+                console.log(conf[key])
+            }
+        } else {
+            console.log(conf)
+        }
     }
     
     resolve() {
+        const list = this.data.transactions
+        list.sort((a, b) => {
+            if (a.date.isBefore(b.date)) return -1
+            if (a.date.isAfter(b.date)) return 1
 
+            const comment_res = a.comment.localeCompare(b.comment)
+            if (comment_res != 0) return comment_res
+            throw new Error(`Same date with same comment: ${a.date.format(this.data.format)} -- ${a.comment}`)
+        })
+        let res = `---\n${this.data.raw.header_str}---\n\n`
+        for (const t of list) {
+            res += t.stringify()
+        }
+        fs.writeFileSync(this.input_file, res)
     }
     
     dump() {
-
+        console.log(JSON.stringify(this.data, null, '    '))
     }
 
     view() {
     
         //open('test.html')
     }
+
+    execute() {
+        return this[this.command]()
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 ;(async () => {
@@ -354,27 +436,26 @@ class Commander {
     verbose(`Loading config from ${args.config}`)
     const config = yaml.safeLoad(fs.readFileSync(args.config, 'utf8'))
 
-    // parse input
-    let input = ''
-    if (config.input) {
-        input = config.input
-    } else if (args.input || args.i) {
-        input = args.input || args.i
-    } else {
-        usage('Missing input...')
-        process.exit(1)
+    // setting up the commander
+    const commander = new Commander(config, args)
+    if (commander.needs_input()) {
+        // parse input
+        let input = ''
+        if (config.input) {
+            input = config.input
+        } else if (args.input || args.i) {
+            input = args.input || args.i
+        } else {
+            usage('Missing input...')
+        }
+        verbose(`Parsing input ${input}`)
+        const parser = new Parser(config, args)
+        const data = await parser.parse(input)
+        commander.load(input, data)
     }
-    verbose(`Parsing input ${input}`)
-    const parser = new Parser(config, args)
-    const data = await parser.parse(input)
 
     // execute command
-    const commander = new Commander(data)
-    let command = args._[0]
-    command = commander.aliases[command] || command
-    if (!command) commander.usage(`Missing command...`)
-    if (!commander[command]) commander.usage(`Unknown command "${command}"`)
-    verbose(`Executing command ${command}`)
-    commander[command]()
+    verbose(`Executing command ${commander.command}`)
+    commander.execute()
 
 })()
