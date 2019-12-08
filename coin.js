@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -24,10 +26,12 @@ const usage = (msg = '', code = 1) => {
     console.log(`coin (c)onfig key value -- set key to value in the config`)
     console.log()
     console.log(`coin (r)esolve -- bring to canonical/sorted form and update database`)
+    console.log(`  --reformat <format> -- write out a different date format than the original`)
     console.log()
     console.log(`coin (d)ump filename -- dump the internal representation`)
     console.log()
     console.log(`coin (v)iew -- dump and open an html based view`)
+    console.log(`  --noopen -- just dump the html view, don't open`)
     process.exit(code)
 }
 
@@ -76,9 +80,10 @@ class Category {
 
 class Transaction {
 
-    constructor(mark, date, from, to, comment, context) {
+    constructor(mark, date, type, from, to, comment, context) {
         this.mark = mark
         this.date = date
+        this.type = type
         this.from = from
         this.to = to
         this.comment = comment
@@ -87,7 +92,9 @@ class Transaction {
 
     stringify() {
         const m = this.mark ? `[${this.mark}] ` : ''
-        const d = this.date.format(this.context.format)
+        // possible format override
+        const format = this.context.reformat || this.context.format
+        const d = this.date.format(format)
         const f = this.from.stringify()
         const t = this.to.stringify()
         const c = this.comment
@@ -97,7 +104,8 @@ class Transaction {
     toJSON() {
         return {
             mark: this.mark,
-            date: this.date,
+            date: this.date.format(this.context.format),
+            type: this.type,
             from: this.from,
             to: this.to,
             comment: this.comment
@@ -232,25 +240,29 @@ class Parser {
         date = this.date(date)
     
         // to/from untangling
+        let type
         if (from.includes(':')) {
             from = this.funds(from)
             if (to.includes(':')) {
                 // transfer
                 to = this.funds(to)
+                type = 'TR'
             } else {
-                // outgoing
+                // expense
                 to = this.category(to)
+                type = 'EX'
             }
         } else {
             // incoming
             from = this.category(from)
             to = this.funds(to)
+            type = 'IN'
         }
 
         // clean up comment
         comment = comment.join(' ').trim()
         
-        return new Transaction(mark, date, from, to, comment, this.context)
+        return new Transaction(mark, date, type, from, to, comment, this.context)
     }
 
     name(str) {
@@ -279,7 +291,7 @@ class Parser {
             const name = this.name(acc.name)
             const currency = acc.currency || this.context.currency
             const group = acc.group
-            const init = acc.init || 0
+            const init = parseFloat((acc.init+'').replace(',', '')) || 0
             accs[name.id] = {name, currency, group, init}
         }
         h.accounts = accs
@@ -408,8 +420,11 @@ class Commander {
     }
 
     view() {
-    
-        //open('test.html')
+        let html = fs.readFileSync('./view.html', 'utf8')
+        html = html.replace('INSERT_DATA_HERE', JSON.stringify(this.data, null, '    '))
+        const output = path.join(os.tmpdir(), 'coin_view.html')
+        fs.writeFileSync(output, html)
+        if (!this.args.noopen) open(output)
     }
 
     execute() {
@@ -426,6 +441,7 @@ class Commander {
     }
 
     // set up config
+    args.config = args.config || args.c
     if (!args.config) {
         args.config = path.join(os.homedir(), '.coin_config')
     }

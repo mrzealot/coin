@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Coin View</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootswatch/4.4.1/darkly/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.10.20/css/dataTables.bootstrap4.min.css">
+  <style>
+    nav {
+      font-weight: bold;
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+
+    nav .nav-link.active {
+      background-color: #009670 !important;
+    }
+
+    .tab-pane {
+      padding: 20px;
+    }
+
+    table.dataTable {
+      width: 100%;
+    }
+
+    table.dataTable tr {
+      line-height: 24px;
+    }
+
+    table.dataTable tbody tr.odd {
+      background-color: #303030;
+    }
+
+    table.dataTable tbody tr:hover {
+      background-color: #505050;
+    }
+
+    table.dataTable tbody td.type-in {
+      background-color: #009670;
+    }
+
+    table.dataTable tbody td.type-tr {
+      background-color: #D98D14;
+    }
+
+    table.dataTable tbody td.right {
+      text-align: right;
+      padding-right: 10px;
+    }
+
+    table.dataTable tbody td.center {
+      text-align: center;
+    }
+
+    table.dataTable tfoot td input {
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav>
+    <div class="nav nav-pills justify-content-center" id="nav-tab" role="tablist">
+      <a class="nav-item nav-link active" id="nav-overview-tab" data-toggle="tab" href="#nav-overview" role="tab"
+        aria-controls="nav-overview" aria-selected="true">Overview</a>
+      <a class="nav-item nav-link" id="nav-categories-tab" data-toggle="tab" href="#nav-categories" role="tab"
+        aria-controls="nav-categories" aria-selected="false">Categories</a>
+      <a class="nav-item nav-link" id="nav-accounts-tab" data-toggle="tab" href="#nav-accounts" role="tab"
+        aria-controls="nav-accounts" aria-selected="false">Accounts</a>
+      <a class="nav-item nav-link" id="nav-transactions-tab" data-toggle="tab" href="#nav-transactions" role="tab"
+        aria-controls="nav-transactions" aria-selected="false">Transactions</a>
+    </div>
+  </nav>
+
+  <div class="tab-content" id="nav-tabContent">
+    <div class="tab-pane active" id="nav-overview" role="tabpanel" aria-labelledby="nav-overview-tab">
+      Overview
+    </div>
+
+    <div class="tab-pane" id="nav-categories" role="tabpanel" aria-labelledby="nav-categories-tab">
+      Categories
+    </div>
+
+    <div class="tab-pane" id="nav-accounts" role="tabpanel" aria-labelledby="nav-accounts-tab">
+      Accounts
+    </div>
+
+    <div class="tab-pane" id="nav-transactions" role="tabpanel" aria-labelledby="nav-transactions-tab">
+      <table id="tx-table" class="display">
+        <thead>
+          <tr>
+            <th class="date">Date</th>
+            <th class="basic">Mark</th>
+            <th class="basic">Comment</th>
+            <th class="basic">Type</th>
+            <th class="range">From Amount</th>
+            <th class="basic">From Account</th>
+            <th class="range">To Amount</th>
+            <th class="basic">To Account</th>
+            <th class="basic">Category</th>
+            <th class="basic">Subcategory</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+    integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+    crossorigin="anonymous"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+    integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+    crossorigin="anonymous"></script>
+  <script src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.10.20/js/dataTables.bootstrap4.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"
+    integrity="sha256-4iQZ6BVL4qNKlQ27TExEhBN1HFPvAvAMbFavKKosSWQ=" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/hotkeys-js/dist/hotkeys.min.js"></script>
+
+  <script>
+
+    data = INSERT_DATA_HERE
+
+    $(async () => {
+
+      // const exchange = await (async () => {
+
+      //   const base = data.currency
+
+      //   const currs = new Set()
+      //   for (const [, acc] of Object.entries(data.accounts)) {
+      //     if (acc.currency) {
+      //       currs.add(acc.currency)
+      //     }
+      //   }
+  
+      //   const symbols = [...currs].join(',')
+      //   const api = `https://api.exchangeratesapi.io/latest?base=${base}&symbols=${symbols}`
+
+      //   return await $.getJSON(api)
+
+      // })()
+
+      // use this actual response temporarily until development/testing is done
+      const exchange = {"rates":{"EUR":0.0030285593,"USD":0.0033598837},"base":"HUF","date":"2019-12-06"}
+
+
+      const tx_table = $('#tx-table')
+      const tx_body = tx_table.find('tbody')
+      for (const tx of data.transactions) {
+
+        // prep
+        console.log(tx)
+        let from_acc, from_amt, to_acc, to_amt, main, sub
+        if (['EX', 'TR'].includes(tx.type)) {
+          from_acc = data.accounts[tx.from.account].name.display
+          from_amt = tx.from.amount
+        }
+        if (['IN', 'TR'].includes(tx.type)) {
+          to_acc = data.accounts[tx.to.account].name.display
+          to_amt = tx.to.amount
+        }
+        if (tx.type != 'TR') {
+          const cat_key = tx.type == 'IN' ? 'from' : 'to'
+          main = data.categories[tx[cat_key].main].name.display
+          sub = data.categories[tx[cat_key].main].subs[tx[cat_key].sub].display
+        }
+
+        // display
+        tx_body.append(`
+          <tr>
+            <td>${tx.date}</td>
+            <td>${tx.mark}</td>
+            <td>${tx.comment}</td>
+            <td class="center type-${tx.type.toLowerCase()}">${tx.type}</td>
+            <td class="right">${from_amt || ''}</td>
+            <td>${from_acc || ''}</td>
+            <td class="right">${to_amt || ''}</td>
+            <td>${to_acc || ''}</td>
+            <td>${main || ''}</td>
+            <td>${sub || ''}</td>
+          </tr>
+        `)
+      }
+
+      const dt = tx_table.DataTable({
+        order: [[0, "desc"]],
+        autoWidth: false,
+        lengthChange: false,
+        pageLength: 25,
+        dom: 'lrtip',
+        columnDefs: [
+          {
+            // correct number formats
+            render: (data, type, row, meta) => {
+              let val = data.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,')
+              if (val.endsWith('.00')) val = val.slice(0, -3)
+              return val
+            },
+            targets: [4, 6]
+          }
+        ]
+      })
+
+      const cols = ['date', 'mark', 'comment', 'type', 'from-amt', 'from-acc', 'to-amt', 'to-acc', 'main', 'sub']
+      for (const [index, col] of cols.entries()) {
+        const dt_col = dt.column(index)
+        const input = $(`<input type="text" id="search-${col}" />`).appendTo(dt_col.footer())
+        if (col != 'date' && !col.endsWith('-amt')) {
+          input.on('keyup', () => {
+            // basic search at every keypress
+            dt_col.search(input.val())
+            dt.draw()
+          })
+        } else {
+          // custom search is already there separately
+          // so we just trigger a redraw
+          input.on('change', () => {
+            dt.draw()
+          })
+        }
+      }
+
+      const to_num = (val, default_val) => {
+        const res = parseFloat(val)
+        if (Number.isNaN(res)) {
+          return default_val
+        }
+        return res
+      }
+
+      // custom search for number ranges
+      const num_range_search = (id, index) => (settings, data, data_index) => {
+        const term = $(id).val()
+        if (!term) return true
+        const val = parseFloat(data[index].toString().replace(',', ''))
+
+        let min, max
+        if (term.includes(':')) {
+          [min, max] = term.split(':')
+        } else {
+          min = max = term
+        }
+        min = to_num(min, -Infinity)
+        max = to_num(max, Infinity)
+
+        return (min <= val && val <= max)
+      }
+
+      $.fn.dataTable.ext.search.push(num_range_search('#search-from-amt', 4))
+      $.fn.dataTable.ext.search.push(num_range_search('#search-to-amt', 6))
+
+      const to_date = (date, default_date) => {
+        const res = moment(date)
+        if (!res.isValid()) {
+          return default_date
+        }
+        return res
+      }
+
+      const date_range_search = (id, index) => (settings, data, data_index) => {
+        const term = $(id).val()
+        if (!term) return true
+        const val = moment(data[index])
+
+        let min, max
+        if (term.includes(':')) {
+          [min, max] = term.split(':')
+        } else {
+          min = max = term
+        }
+        min = to_date(min, moment('1970-01-01'))
+        max = to_date(max, moment('3000-01-01'))
+
+        console.log(min.format('YYYY.MM.DD'), max.format('YYYY.MM.DD'), val.format('YYYY.MM.DD'))
+
+        return (min.isSameOrBefore(val) && val.isSameOrBefore(max))
+      }
+
+      $.fn.dataTable.ext.search.push(date_range_search('#search-date', 0))
+
+
+
+      $('nav').focus()
+
+      hotkeys('o', () => {
+        $('#nav-overview-tab').click()
+      })
+
+      hotkeys('c', () => {
+        $('#nav-categories-tab').click()
+      })
+
+      hotkeys('a', () => {
+        $('#nav-accounts-tab').click()
+      })
+
+      hotkeys('t', () => {
+        $('#nav-transactions-tab').click()
+        setTimeout(() => {
+          $('#search-date').focus()
+        }, 1)
+      })
+
+    })
+
+
+  </script>
+
+</body>
+
+</html>
