@@ -53,7 +53,7 @@ class Fund {
 
     toJSON() {
         return {
-            account: this.account.name.id,
+            account: this.account.name,
             amount: this.amount
         }
     }
@@ -72,20 +72,21 @@ class Category {
 
     toJSON() {
         return {
-            main: this.main.name.id,
-            sub: this.sub.id
+            main: this.main.name,
+            sub: this.sub
         }
     }
 }
 
 class Transaction {
 
-    constructor(mark, date, type, from, to, comment, context) {
+    constructor(mark, date, type, from, to, category, comment, context) {
         this.mark = mark
         this.date = date
         this.type = type
         this.from = from
         this.to = to
+        this.category = category
         this.comment = comment
         this.context = context
     }
@@ -95,10 +96,19 @@ class Transaction {
         // possible format override
         const format = this.context.reformat || this.context.format
         const d = this.date.format(format)
-        const f = this.from.stringify()
-        const t = this.to.stringify()
+        let f, b
+        if (this.type == 'IN') {
+            f = this.category.stringify()
+            b = this.to.stringify()
+        } else if (this.type == 'EX') {
+            f = this.from.stringify()
+            b = this.category.stringify()
+        } else {
+            f = this.from.stringify()
+            b = this.to.stringify()
+        }
         const c = this.comment
-        return `${m}${d} ${f} ${t} ${c}\n`
+        return `${m}${d} ${f} ${b} ${c}\n`
     }
 
     toJSON() {
@@ -108,6 +118,7 @@ class Transaction {
             type: this.type,
             from: this.from,
             to: this.to,
+            category: this.category,
             comment: this.comment
         }
     }
@@ -234,35 +245,35 @@ class Parser {
             parts.shift()
         }
     
-        let [date, from, to, ...comment] = parts
-
+        let [date, front, back, ...comment] = parts
+        
         // date
         date = this.date(date)
-    
+        
         // to/from untangling
-        let type
-        if (from.includes(':')) {
-            from = this.funds(from)
-            if (to.includes(':')) {
+        let type, from, to, category
+        if (front.includes(':')) {
+            from = this.funds(front)
+            if (back.includes(':')) {
                 // transfer
-                to = this.funds(to)
+                to = this.funds(back)
                 type = 'TR'
             } else {
                 // expense
-                to = this.category(to)
+                category = this.category(back)
                 type = 'EX'
             }
         } else {
             // incoming
-            from = this.category(from)
-            to = this.funds(to)
+            category = this.category(front)
+            to = this.funds(back)
             type = 'IN'
         }
 
         // clean up comment
         comment = comment.join(' ').trim()
         
-        return new Transaction(mark, date, type, from, to, comment, this.context)
+        return new Transaction(mark, date, type, from, to, category, comment, this.context)
     }
 
     name(str) {
@@ -420,7 +431,7 @@ class Commander {
     }
 
     view() {
-        let html = fs.readFileSync('./view.html', 'utf8')
+        let html = fs.readFileSync(path.join(__dirname, 'view.html'), 'utf8')
         html = html.replace('INSERT_DATA_HERE', JSON.stringify(this.data, null, '    '))
         const output = path.join(os.tmpdir(), 'coin_view.html')
         fs.writeFileSync(output, html)
