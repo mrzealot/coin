@@ -570,6 +570,9 @@
 
       hotkeys('a', () => {
         $('#nav-accounts-tab').click()
+        setTimeout(() => {
+          $('#acc-date').focus()
+        }, 1)
       })
 
       hotkeys('t', () => {
@@ -578,6 +581,17 @@
           $('#search-date').focus()
         }, 1)
       })
+
+      // Esc to remove focus (so that I can use other hotkeys)
+      window.onkeydown = function (e) {
+        if (e.code === 'Escape') {
+          const focused = document.activeElement;
+          const elems = ['INPUT', 'TEXTAREA'];
+          if (elems.includes(focused.tagName)) {
+            focused.blur();
+          }
+        }
+      }
 
       // #endregion
 
