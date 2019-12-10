@@ -293,7 +293,8 @@ class Parser {
                 const sub_name = this.name(sub)
                 subs[sub_name.id] = sub_name
             }
-            cats[name.id] = {name, subs}
+            const incoming = cat.incoming
+            cats[name.id] = {name, subs, incoming}
         }
         h.categories = cats
         

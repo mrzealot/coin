@@ -154,7 +154,29 @@
     </div>
 
     <div class="tab-pane" id="nav-categories" role="tabpanel" aria-labelledby="nav-categories-tab">
-      Categories
+      <table id="cat-table" class="table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Subcategory</th>
+            <th>Jan</th>
+            <th>Feb</th>
+            <th>Mar</th>
+            <th>Apr</th>
+            <th>May</th>
+            <th>Jun</th>
+            <th>Jul</th>
+            <th>Aug</th>
+            <th>Sep</th>
+            <th>Oct</th>
+            <th>Nov</th>
+            <th>Dec</th>
+            <th>Sum</th>
+            <th>Avg</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
 
     <div class="tab-pane" id="nav-accounts" role="tabpanel" aria-labelledby="nav-accounts-tab">
@@ -275,7 +297,7 @@
 
     // #region Data Prep
 
-    data.category_sums = {}
+    // some basic defaults
     for (const tx of data.transactions) {
 
       if (tx.from) {
@@ -301,6 +323,36 @@
       }
 
       tx.category = tx.category || { main: { display: '' }, sub: { display: '' } }
+    }
+
+    // category sums (both month-based and global)
+    data.category_sums = {}
+    for (const tx of data.transactions) {
+      if (tx.type != 'TR') {
+        const month = moment(tx.date).month()
+        const dir = tx.type.toLowerCase()
+        const main = tx.category.main.id
+        const sub = tx.category.sub.id
+        const amount = tx.type == 'EX' ? tx.from.converted : tx.to.converted
+        const c = data.category_sums
+
+        c.month = c.month || {}
+        c.month[month] = c.month[month] || {}
+        c.month[month][dir] = c.month[month][dir] || { sum: 0 }
+        c.month[month][dir][main] = c.month[month][dir][main] || { sum: 0 }
+        c.month[month][dir][main][sub] = c.month[month][dir][main][sub] || 0
+        c.month[month][dir].sum += amount
+        c.month[month][dir][main].sum += amount
+        c.month[month][dir][main][sub] += amount
+
+        c.global = c.global || {}
+        c.global[dir] = c.global[dir] || { sum: 0 }
+        c.global[dir][main] = c.global[dir][main] || { sum: 0 }
+        c.global[dir][main][sub] = c.global[dir][main][sub] || 0
+        c.global[dir].sum += amount
+        c.global[dir][main].sum += amount
+        c.global[dir][main][sub] += amount
+      }
     }
 
     // #endregion
@@ -354,6 +406,259 @@
     // #endregion
 
     $(async () => {
+
+      // #region Categories
+
+      // calculate average denominator
+      const is_current = moment(data.transactions[0].date).year() == moment().year()
+      let avg_denom = 12
+      if (is_current) avg_denom *= moment().dayOfYear() / (moment().isLeapYear() ? 366 : 365)
+
+      // calculate per-level stats for the cell colors
+      const maxer = (base, key, val) => {
+        base[key] = Math.max(base[key], val)
+      }
+      const cat_stats = {
+        in: {
+          month: { dir: 0, main: 0, sub: 0 },
+          global: { dir: 0, main: 0, sub: 0 }
+        },
+        ex: {
+          month: { dir: 0, main: 0, sub: 0 },
+          global: { dir: 0, main: 0, sub: 0 }
+        }
+      }
+      for (const [dir, dir_data] of Object.entries(data.category_sums.global)) {
+        for (const [main, main_data] of Object.entries(dir_data)) {
+          if (main == 'sum') {
+            maxer(cat_stats[dir].global, 'dir', main_data)
+          } else {
+            for (const [sub, sub_data] of Object.entries(main_data)) {
+              if (sub == 'sum') {
+                maxer(cat_stats[dir].global, 'main', sub_data)
+              } else {
+                maxer(cat_stats[dir].global, 'sub', sub_data)
+              }
+            }
+          }
+        }
+      }
+      for (let month = 0; month < 12; ++month) {
+        for (const [dir, dir_data] of Object.entries(data.category_sums.month[month])) {
+          for (const [main, main_data] of Object.entries(dir_data)) {
+            if (main == 'sum') {
+              maxer(cat_stats[dir].month, 'dir', main_data)
+            } else {
+              for (const [sub, sub_data] of Object.entries(main_data)) {
+                if (sub == 'sum') {
+                  maxer(cat_stats[dir].month, 'main', sub_data)
+                } else {
+                  maxer(cat_stats[dir].month, 'sub', sub_data)
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // gets a single cell's value
+      const get_cat_sum = (granularity, dir, main, sub) => {
+        console.log('get_cat_sum', granularity, dir, main, sub)
+        let target
+        if (granularity == 'global') {
+          target = data.category_sums.global[dir]
+        } else {
+          target = data.category_sums.month[granularity][dir]
+        }
+        if (!target) return 0
+        if (main) {
+          target = target[main]
+          if (!target) return 0
+          if (sub) {
+            return target[sub] || 0
+          } else {
+            return target.sum || 0
+          }
+        } else {
+          return target.sum || 0
+        }
+      }
+
+      
+
+      // gets a row's worth of values
+      const get_cat_row = (dir, main, sub) => {
+        console.log('get_cat_row', dir, main, sub)
+        const months = []
+        for (let month = 0; month < 12; ++month) {
+          months.push(get_cat_sum(month, dir, main, sub))
+          console.log('just calced', months[months.length - 1])
+        }
+        const sum = get_cat_sum('global', dir, main, sub)
+        return {
+          months,
+          sum
+        }
+      }
+
+
+      // format to thousands only
+      const format_cat_number = (num) => {
+        if (!num) return ''
+        console.log('format_cat_number', num, '-->', format_number(Math.round(num / 1000), false))
+        return format_number(Math.round(num / 1000), false)
+      }
+
+      const interpolate_color = (fraction, invert) => {
+        return 'transparent'
+      }
+
+
+      const cat_table = $('#cat-table')
+      const cat_tbody = cat_table.find('tbody')
+
+      const build_cat_cell = (value, max, invert, filters) => {
+        const color = interpolate_color(value / max, invert)
+        const str = format_cat_number(value)
+        let filter_arr = []
+        for (const [key, val] of Object.entries(filters)) {
+          filter_arr.push(`data-filter-${key}="${val}"`)
+        }
+        return `
+          <td
+            class="cat-cell right"
+            ${filter_arr.join(' ')}
+            style="background-color: ${color};"
+          >
+            ${str}
+          </td>
+        `
+      }
+
+      // direction level summaries (in vs. ex)
+      const build_cat_dir = (dir) => {
+        const invert = dir == 'ex'
+        const row = get_cat_row(dir)
+        const cells = ['<td colspan="2">Sum</td>']
+        const month_stat = cat_stats[dir].month.dir
+        const global_stat = cat_stats[dir].global.dir
+
+        for (const [month, value] of row.months.entries()) {
+          cells.push(build_cat_cell(value, month_stat, invert, {
+            month,
+            type: dir
+          }))
+        }
+
+        cells.push(build_cat_cell(row.sum, global_stat, invert, {
+          type: dir
+        }))
+
+        cells.push(build_cat_cell(row.sum / avg_denom, global_stat / avg_denom, invert, {
+          type: dir
+        }))
+
+        cat_tbody.append($(`
+          <tr>
+            ${cells.join('')}
+          </tr>
+        `))
+      }
+
+      // main level summaries
+      const build_cat_main = (dir, main) => {
+        const invert = dir == 'ex'
+        const row = get_cat_row(dir, main)
+        const main_display = data.categories[main].name.display
+        const cells = [`<td>${main_display}</td>`, '<td>Sum</td>']
+        const month_stat = cat_stats[dir].month.main
+        const global_stat = cat_stats[dir].global.main
+
+        for (const [month, value] of row.months.entries()) {
+          cells.push(build_cat_cell(value, month_stat, invert, {
+            month,
+            type: dir,
+            main
+          }))
+        }
+
+        cells.push(build_cat_cell(row.sum, global_stat, invert, {
+          type: dir,
+          main
+        }))
+
+        cells.push(build_cat_cell(row.sum / avg_denom, global_stat / avg_denom, invert, {
+          type: dir,
+          main
+        }))
+
+        cat_tbody.append($(`
+          <tr>
+            ${cells.join('')}
+          </tr>
+        `))
+      }
+
+      // sub level summaries
+      const build_cat_sub = (dir, main, sub) => {
+        const invert = dir == 'ex'
+        const row = get_cat_row(dir, main, sub)
+        const main_display = data.categories[main].name.display
+        const sub_display = data.categories[main].subs[sub].display
+        const cells = [`<td>${main_display}</td>`, `<td>${sub_display}</td>`]
+        const month_stat = cat_stats[dir].month.sub
+        const global_stat = cat_stats[dir].global.sub
+
+        for (const [month, value] of row.months.entries()) {
+          cells.push(build_cat_cell(value, month_stat, invert, {
+            month,
+            type: dir,
+            main,
+            sub
+          }))
+        }
+
+        cells.push(build_cat_cell(row.sum, global_stat, invert, {
+          type: dir,
+          main,
+          sub
+        }))
+
+        cells.push(build_cat_cell(row.sum / avg_denom, global_stat / avg_denom, invert, {
+          type: dir,
+          main,
+          sub
+        }))
+
+        cat_tbody.append($(`
+          <tr>
+            ${cells.join('')}
+          </tr>
+        `))
+      }
+
+      const build_cat_half = (dir) => {
+        const invert = dir == 'in'
+        if (invert) build_cat_dir(dir)
+        for (const main of Object.values(data.categories)) {
+          console.log(main)
+          if ((dir == 'in' && !main.incoming) || (dir == 'ex' && main.incoming)) continue
+          if (invert) build_cat_main(dir, main.name.id)
+          for (const sub of Object.values(main.subs)) {
+            build_cat_sub(dir, main.name.id, sub.id)
+          }
+          if (!invert) build_cat_main(dir, main.name.id)
+        }
+        if (!invert) build_cat_dir(dir)
+      }
+
+      build_cat_half('in')
+      build_cat_half('ex')
+
+      
+      
+
+      // #endregion
 
       // #region Account Sums
 
