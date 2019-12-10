@@ -46,7 +46,8 @@
       background-color: #505050;
     }
 
-    table.dataTable tbody td.type-in {
+    table.dataTable tbody td.type-in,
+    table.dataTable tbody td.audited {
       background-color: #009670;
     }
 
@@ -350,9 +351,10 @@
       const tx_table = $('#tx-table')
       const tx_tbody = tx_table.find('tbody')
       for (const tx of data.transactions) {
+        const audited = (data.audit && moment(data.audit).isSameOrAfter(tx.date))
         tx_tbody.append(`
           <tr>
-            <td>${tx.date}</td>
+            <td class="center${audited ? ' audited' : ''}">${tx.date}</td>
             <td>${tx.mark}</td>
             <td>${tx.comment}</td>
             <td class="center type-${tx.type.toLowerCase()}">${tx.type}</td>
