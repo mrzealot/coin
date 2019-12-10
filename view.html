@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-  
+
 <!-- #region Boilerplate -->
 
 <head>
@@ -11,11 +11,17 @@
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootswatch/4.4.1/darkly/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.datatables.net/1.10.20/css/dataTables.bootstrap4.min.css">
 
-<!-- #endregion -->
+  <!-- #endregion -->
 
-<!-- #region CSS -->
+  <!-- #region CSS -->
 
   <style>
+    input,
+    a {
+      outline: none !important;
+      box-shadow: none !important;
+    }
+
     nav {
       font-weight: bold;
       margin-top: 20px;
@@ -38,6 +44,10 @@
       line-height: 24px;
     }
 
+    td {
+      vertical-align: middle !important;
+    }
+
     table.dataTable tbody tr.odd {
       background-color: #303030;
     }
@@ -55,7 +65,8 @@
       background-color: #D98D14;
     }
 
-    table td.right, table th.right {
+    table td.right,
+    table th.right {
       text-align: right;
       padding-right: 10px;
     }
@@ -96,8 +107,22 @@
       margin: 30px auto 0 auto;
     }
 
-    #acc-table td, #acc-table th {
+    #acc-table td,
+    #acc-table th {
       padding: 0 30px;
+    }
+
+    #acc-date {
+      display: block;
+      margin: 20px auto 50px auto;
+      width: 200px;
+      text-align: center;
+      font-size: x-large;
+      border: 4px solid transparent;
+    }
+
+    #acc-date.invalid {
+      border-color: #E74C3C;
     }
   </style>
 
@@ -133,23 +158,26 @@
     </div>
 
     <div class="tab-pane" id="nav-accounts" role="tabpanel" aria-labelledby="nav-accounts-tab">
+      <input type="text" id="acc-date" placeholder="Today" />
       <table id="acc-table" class="table">
-          <thead>
-            <tr>
-              <th>Account</th>
-              <th>Currency</th>
-              <th>Balance</th>
-              <th>Converted</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-          <tfoot>
-            <th>Sum:</th>
-            <th></th>
-            <th></th>
-            <th id="account-sum-total" class="right"></th>
-          </tfoot>
-        </table>
+        <thead>
+          <tr>
+            <th>Group</th>
+            <th>Account</th>
+            <th>Currency</th>
+            <th>Balance</th>
+            <th>Converted</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <th>Sum:</th>
+          <th></th>
+          <th></th>
+          <th></th>
+          <th id="account-sum-total" class="right"></th>
+        </tfoot>
+      </table>
     </div>
 
     <div class="tab-pane" id="nav-transactions" role="tabpanel" aria-labelledby="nav-transactions-tab">
@@ -193,7 +221,7 @@
 
   <!-- #endregion -->
 
-<!-- #region Script Includes -->
+  <!-- #region Script Includes -->
 
   <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
@@ -208,10 +236,10 @@
     integrity="sha256-4iQZ6BVL4qNKlQ27TExEhBN1HFPvAvAMbFavKKosSWQ=" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/hotkeys-js/dist/hotkeys.min.js"></script>
 
-<!-- #endregion -->
+  <!-- #endregion -->
 
   <script>
-  
+
     // #region Currency Exchange
 
     data = INSERT_DATA_HERE
@@ -232,7 +260,7 @@
     // })()
 
     // use this actual response temporarily until development/testing is done
-    exchange = {"rates":{"EUR":0.0030158634,"USD":0.0033400688,"GBP":0.0025392062},"base":"HUF","date":"2019-12-09"}
+    exchange = { "rates": { "EUR": 0.0030158634, "USD": 0.0033400688, "GBP": 0.0025392062 }, "base": "HUF", "date": "2019-12-09" }
     exchange.calculate = (amount, from, to) => {
       if (from != exchange.base) {
         amount /= exchange.rates[from]
@@ -258,7 +286,7 @@
         )
         tx.from.str = tx.from.amount
       } else {
-        tx.from = {converted: 0, amount: '', account: {display: ''}}
+        tx.from = { converted: 0, amount: '', account: { display: '' } }
       }
 
       if (tx.to) {
@@ -269,23 +297,23 @@
         )
         tx.to.str = tx.to.amount
       } else {
-        tx.to = {converted: 0, amount: '', account: {display: ''}}
+        tx.to = { converted: 0, amount: '', account: { display: '' } }
       }
 
-      tx.category = tx.category || {main: {display: ''}, sub: {display: ''}}
+      tx.category = tx.category || { main: { display: '' }, sub: { display: '' } }
     }
 
     // #endregion
 
     // #region Helper Functions
 
-    format_number = (val) => {
+    format_number = (val, space = true) => {
       if (val === '') return val
       val = parseFloat(val).toFixed(2).toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,')
       if (val.endsWith('.00')) val = val.slice(0, -3)
       if (val.includes('.')) {
         val = val.replace('.', ' .')
-      } else {
+      } else if (space) {
         val += ' &puncsp;&numsp;&numsp;'
       }
       return val
@@ -331,18 +359,50 @@
 
       const acc_table = $('#acc-table')
       const acc_tbody = acc_table.find('tbody')
+      // prep accounts by group
+      const account_groups = {}
+      const no_group_key = '&ndash;'
       for (const acc of Object.values(data.accounts)) {
-        acc_tbody.append(`
-          <tr>
-            <td>${acc.name.display}</td>
-            <td>${acc.currency || default_currency}</td>
-            <td id="account-sum-${acc.name.id}" class="right"></td>
-            <td id="account-sum-${acc.name.id}-converted" class="right"></td>
-          </tr>
-        `)
+        const key = acc.group || no_group_key
+        account_groups[key] = account_groups[key] || []
+        account_groups[key].push(acc)
+      }
+      for (const [group, accs] of Object.entries(account_groups)) {
+        let first = true
+        for (const acc of accs) {
+          const group_str = first ? `
+            <td rowspan="${accs.length}">${group}</td>
+          ` : ''
+          acc_tbody.append(`
+            <tr>
+              ${group_str}
+              <td>${acc.name.display}</td>
+              <td>${acc.currency || default_currency}</td>
+              <td id="account-sum-${acc.name.id}" class="right"></td>
+              <td id="account-sum-${acc.name.id}-converted" class="right"></td>
+            </tr>
+          `)
+          first = false
+        }
       }
       // init with full sums up to now
       sum_accounts(moment())
+      // and then whenever the date selector changes
+      $('#acc-date').on('change', function () {
+        let date = $(this).val()
+        if (date) {
+          date = moment(date)
+          if (!date.isValid()) {
+            $(this).addClass('invalid')
+            return
+          } else {
+            $(this).removeClass('invalid')
+          }
+        } else {
+          date = moment()
+        }
+        sum_accounts(date)
+      })
 
       // #endregion
 
@@ -400,8 +460,9 @@
         infoCallback: (settings, start, end, max, total, pre) => {
           const dt = new $.fn.dataTable.Api(settings)
           let expense = 0, incoming = 0
-          dt.rows({filter: 'applied'}).every(function () {
+          dt.rows({ filter: 'applied' }).every(function () {
             const row = $(this.node()).children('td')
+            if ($(row[3]).html() == 'TR') return
             expense += parseFloat($(row[4]).data('converted'))
             incoming += parseFloat($(row[6]).data('converted'))
           })
@@ -410,9 +471,9 @@
           const max_str = max != total ? ` (${max})` : ''
 
           tx_pos.html(`${start}${end_str}/${total}${max_str}`)
-          tx_sum_i.html(format_number(incoming))
-          tx_sum_e.html(format_number(expense))
-          tx_sum_diff.html(format_number(incoming - expense))
+          tx_sum_i.html(format_number(incoming, false))
+          tx_sum_e.html(format_number(expense, false))
+          tx_sum_diff.html(format_number(incoming - expense, false))
         }
       })
 
@@ -524,4 +585,5 @@
 
   </script>
 </body>
+
 </html>
