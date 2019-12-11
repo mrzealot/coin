@@ -128,6 +128,14 @@
       border-color: #E74C3C;
     }
 
+    #cat-table th {
+      position: sticky;
+      top: 0;
+      padding-left: 0;
+      padding-right: 0;
+      background-color: #222;
+    }
+
     #cat-table tr.dir-row {
       font-weight: bold;
       font-size: x-large;
@@ -177,6 +185,10 @@
     #cat-table tr td:nth-of-type(15) {
       border-left: 3px solid #ddd;
     }
+
+    #nav-overview {
+      padding: 30px 100px;
+    }
   </style>
 
 
@@ -203,7 +215,7 @@
 
   <div class="tab-content" id="nav-tabContent">
     <div class="tab-pane active" id="nav-overview" role="tabpanel" aria-labelledby="nav-overview-tab">
-      Overview
+      <canvas id="chart"></canvas>
     </div>
 
     <div class="tab-pane" id="nav-categories" role="tabpanel" aria-labelledby="nav-categories-tab">
@@ -310,6 +322,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"
     integrity="sha256-4iQZ6BVL4qNKlQ27TExEhBN1HFPvAvAMbFavKKosSWQ=" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/hotkeys-js/dist/hotkeys.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
 
   <!-- #endregion -->
 
@@ -468,6 +481,75 @@
     // #endregion
 
     $(async () => {
+
+      // #region Overview
+
+      // dataset prep
+
+      // from https://learnui.design/tools/data-color-picker.html#palette
+      const chart_colors = [
+        '#003f5c',
+        '#2f4b7c',
+        '#665191',
+        '#a05195',
+        '#d45087',
+        '#f95d6a',
+        '#ff7c43',
+        '#ffa600'
+      ]
+
+      const chart_datasets = []
+
+      // monthly incoming
+      const incoming_values = []
+      for (let month = 0; month < 12; ++month) {
+        const inc = data.category_sums.month[month].in
+        incoming_values.push(inc ? Math.round(inc.sum) : 0)
+      }
+      chart_datasets.push({
+        label: 'Income',
+        type: 'line',
+        data: incoming_values,
+        borderColor: 'white',
+      })
+
+      // monthly expenses
+      let index = 0
+      for (const cat of Object.values(data.categories)) {
+        if (cat.incoming) continue
+        const values = []
+        for (let month = 0; month < 12; ++month) {
+          const expenses = data.category_sums.month[month].ex
+          values.push(expenses && expenses[cat.name.id] ? Math.round(expenses[cat.name.id].sum) : 0)
+        }
+        const chart_index = index % chart_colors.length
+        chart_datasets.push({
+          label: cat.name.display,
+          data: values,
+          backgroundColor: chart_colors[chart_index]
+        })
+        ++index
+      }
+
+      
+
+      // visualization
+      const chart_ctx = $('#chart')
+      const overview_chart = new Chart(chart_ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+          datasets: chart_datasets
+        },
+        options: {
+          scales: {
+            xAxes: [{ stacked: true }],
+            yAxes: [{ stacked: true }]
+          }
+        }
+      })
+
+      // #endregion
 
       // #region Categories
 
