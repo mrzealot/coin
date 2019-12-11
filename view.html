@@ -164,7 +164,7 @@
       border: none;
     }
 
-    #cat-table td div { 
+    #cat-table td div {
       padding: 1px 8px;
       cursor: pointer;
     }
@@ -315,11 +315,20 @@
 
   <script>
 
-    // #region Currency Exchange
+    // #region Data Source
 
     data = INSERT_DATA_HERE
-    default_currency = data.currency
-    display_currency = data.display_currency || default_currency
+
+    const default_currency = data.currency
+    const display_currency = data.display_currency || default_currency
+
+    const data_year = moment(data.transactions[0].date).year()
+    const current_year = moment().year()
+    const is_current = data_year == current_year
+
+    // #endregion
+
+    // #region Currency Exchange
 
     // const exchange = await (async () => {
     //   const base = display_currency
@@ -463,7 +472,7 @@
       // #region Categories
 
       // calculate average denominator
-      const is_current = moment(data.transactions[0].date).year() == moment().year()
+
       let avg_denom = 12
       if (is_current) avg_denom *= moment().dayOfYear() / (moment().isLeapYear() ? 366 : 365)
 
@@ -488,14 +497,11 @@
         resolve: (dir, granularity, type) => {
           const target = cat_stats[dir][granularity][type]
           if (target.cached) return target.cached
-          console.log('resolve', dir, granularity, type, cat_stats)
           target.sort((a, b) => a - b)
-          console.log('resolve sorted', target)
           target.cached = {
             min: cat_stats.percentile(target, 5),
             max: cat_stats.percentile(target, 95)
           }
-          console.log('resolve res', target.cached)
           return target.cached
         }
       }
@@ -534,7 +540,6 @@
 
       // gets a single cell's value
       const get_cat_sum = (granularity, dir, main, sub) => {
-        console.log('get_cat_sum', granularity, dir, main, sub)
         let target
         if (granularity == 'global') {
           target = data.category_sums.global[dir]
@@ -555,8 +560,6 @@
         }
       }
 
-
-
       // gets a row's worth of values
       const get_cat_row = (dir, main, sub) => {
         const months = []
@@ -570,7 +573,6 @@
         }
       }
 
-
       // format to thousands only
       const format_cat_number = (num) => {
         if (!num) return ''
@@ -578,6 +580,7 @@
       }
 
       // 100 stop red-yellow-green gradient pre-generated
+      // (https://pinetools.com/gradient-generator)
       const gradient_stops = [
         '#e74c3c',
         '#e64d3b',
@@ -691,10 +694,11 @@
         return gradient_stops[key]
       }
 
-
+      // dom creation stuff
       const cat_table = $('#cat-table')
       const cat_tbody = cat_table.find('tbody')
 
+      // build single cell
       const build_cat_cell = (value, stat, invert, filters) => {
         const color = interpolate_color(value, stat, invert)
         const str = format_cat_number(value) || '&mdash;'
@@ -830,7 +834,6 @@
         const invert = dir == 'in'
         if (invert) build_cat_dir(dir)
         for (const main of Object.values(data.categories)) {
-          console.log(main)
           if ((dir == 'in' && !main.incoming) || (dir == 'ex' && main.incoming)) continue
           if (invert) build_cat_main(dir, main.name.id)
           for (const sub of Object.values(main.subs)) {
@@ -844,9 +847,6 @@
       build_cat_half('in')
       cat_tbody.find('tr:last-child').addClass('separator')
       build_cat_half('ex')
-
-
-
 
       // #endregion
 
@@ -895,6 +895,7 @@
           }
         } else {
           date = moment()
+          $(this).removeClass('invalid')
         }
         sum_accounts(date)
       })
@@ -1051,6 +1052,47 @@
 
       // #endregion
 
+      // #region Filtering
+
+      const clear_filters = () => {
+        $('#tx-table tfoot input').each(function () {
+          $(this).val('').trigger('keyup').trigger('change')
+        })
+      }
+
+      const filter = (filters) => {
+        if (filters.month) {
+          const from = moment([data_year, filters.month, 1])
+          const to = moment(from).endOf('month')
+          const str = `${from.format(data.format)}:${to.format(data.format)}`
+          $('#search-date').val(str).trigger('change')
+        }
+        if (filters.type) {
+          $('#search-type').val(filters.type).trigger('keyup')
+        }
+        if (filters.main) {
+          const str = data.categories[filters.main].name.display
+          $('#search-main').val(str).trigger('keyup')
+          if (filters.sub) {
+            const str = data.categories[filters.main].subs[filters.sub].display
+            $('#search-sub').val(str).trigger('keyup')
+          }
+        }
+      }
+
+      $('.cat-cell').on('click', function () {
+        const $this = $(this)
+        filter({
+          month: $this.data('filter-month'),
+          type: $this.data('filter-type'),
+          main: $this.data('filter-main'),
+          sub: $this.data('filter-sub')
+        })
+        $('#nav-transactions-tab').click()
+      })
+
+      // #endregion
+
       // #region Keyboard shortcuts
 
       $('nav').focus()
@@ -1075,6 +1117,10 @@
         setTimeout(() => {
           $('#search-date').focus()
         }, 1)
+      })
+
+      hotkeys('q', () => {
+        clear_filters()
       })
 
       // Esc to remove focus (so that I can use other hotkeys)
