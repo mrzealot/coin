@@ -82,10 +82,12 @@
 
     ul.pagination {
       float: right;
+      width: 500px
     }
 
     #tx-pos {
       float: left;
+      width: 200px;
     }
 
     #tx-sum {
@@ -162,20 +164,19 @@
       border: none;
     }
 
-    #cat-table td div {
-      border: 2px solid transparent;
+    #cat-table td div { 
       padding: 1px 8px;
       cursor: pointer;
     }
 
     #cat-table td div:hover {
-      border-color: white;
+      background-color: white !important;
+      color: black !important;
     }
 
     #cat-table tr td:nth-of-type(15) {
       border-left: 3px solid #ddd;
     }
-
   </style>
 
 
@@ -467,29 +468,47 @@
       if (is_current) avg_denom *= moment().dayOfYear() / (moment().isLeapYear() ? 366 : 365)
 
       // calculate per-level stats for the cell colors
-      const maxer = (base, key, val) => {
-        base[key] = Math.max(base[key], val)
-      }
       const cat_stats = {
         in: {
-          month: { dir: 0, main: 0, sub: 0 },
-          global: { dir: 0, main: 0, sub: 0 }
+          month: { dir: [], main: [], sub: [] },
+          global: { dir: [], main: [], sub: [] }
         },
         ex: {
-          month: { dir: 0, main: 0, sub: 0 },
-          global: { dir: 0, main: 0, sub: 0 }
+          month: { dir: [], main: [], sub: [] },
+          global: { dir: [], main: [], sub: [] }
+        },
+        percentile: (arr, perc) => {
+          const index = (perc / 100) * arr.length
+          if (Math.floor(index) == index) {
+            return (arr[index - 1] + arr[index]) / 2
+          } else {
+            return arr[Math.floor(index)]
+          }
+        },
+        resolve: (dir, granularity, type) => {
+          const target = cat_stats[dir][granularity][type]
+          if (target.cached) return target.cached
+          console.log('resolve', dir, granularity, type, cat_stats)
+          target.sort((a, b) => a - b)
+          console.log('resolve sorted', target)
+          target.cached = {
+            min: cat_stats.percentile(target, 5),
+            max: cat_stats.percentile(target, 95)
+          }
+          console.log('resolve res', target.cached)
+          return target.cached
         }
       }
       for (const [dir, dir_data] of Object.entries(data.category_sums.global)) {
         for (const [main, main_data] of Object.entries(dir_data)) {
           if (main == 'sum') {
-            maxer(cat_stats[dir].global, 'dir', main_data)
+            cat_stats[dir].global.dir.push(main_data)
           } else {
             for (const [sub, sub_data] of Object.entries(main_data)) {
               if (sub == 'sum') {
-                maxer(cat_stats[dir].global, 'main', sub_data)
+                cat_stats[dir].global.main.push(sub_data)
               } else {
-                maxer(cat_stats[dir].global, 'sub', sub_data)
+                cat_stats[dir].global.sub.push(sub_data)
               }
             }
           }
@@ -499,13 +518,13 @@
         for (const [dir, dir_data] of Object.entries(data.category_sums.month[month])) {
           for (const [main, main_data] of Object.entries(dir_data)) {
             if (main == 'sum') {
-              maxer(cat_stats[dir].month, 'dir', main_data)
+              cat_stats[dir].month.dir.push(main_data)
             } else {
               for (const [sub, sub_data] of Object.entries(main_data)) {
                 if (sub == 'sum') {
-                  maxer(cat_stats[dir].month, 'main', sub_data)
+                  cat_stats[dir].month.main.push(sub_data)
                 } else {
-                  maxer(cat_stats[dir].month, 'sub', sub_data)
+                  cat_stats[dir].month.sub.push(sub_data)
                 }
               }
             }
@@ -663,12 +682,12 @@
         '#009670'
       ]
 
-      const interpolate_color = (value, max, invert) => {
-        let key = Math.round((value / max) * 100)
+      const interpolate_color = (value, stat, invert) => {
+        const fraction = (stat.min == stat.max) ? 1 : (value - stat.min) / (stat.max - stat.min)
+        let key = Math.round(fraction * 100)
+        if (key < 0) key = 0
+        if (key > 100) key = 100
         if (invert) key = 100 - key
-        if (key !== Math.round(key) || key < 0 || key > 100) {
-          throw 213
-        }
         return gradient_stops[key]
       }
 
@@ -676,9 +695,9 @@
       const cat_table = $('#cat-table')
       const cat_tbody = cat_table.find('tbody')
 
-      const build_cat_cell = (value, max, invert, filters) => {
-        const color = interpolate_color(value, max, invert)
-        const str = format_cat_number(value) || '-'
+      const build_cat_cell = (value, stat, invert, filters) => {
+        const color = interpolate_color(value, stat, invert)
+        const str = format_cat_number(value) || '&mdash;'
         let filter_arr = []
         for (const [key, val] of Object.entries(filters)) {
           filter_arr.push(`data-filter-${key}="${val}"`)
@@ -698,8 +717,8 @@
         const invert = dir == 'ex'
         const row = get_cat_row(dir)
         const cells = ['<td>Sum</td><td></td>']
-        const month_stat = cat_stats[dir].month.dir
-        const global_stat = cat_stats[dir].global.dir
+        const month_stat = cat_stats.resolve(dir, 'month', 'dir')
+        const global_stat = cat_stats.resolve(dir, 'global', 'dir')
 
         for (const [month, value] of row.months.entries()) {
           cells.push(build_cat_cell(value, month_stat, invert, {
@@ -712,7 +731,11 @@
           type: dir
         }))
 
-        cells.push(build_cat_cell(row.sum / avg_denom, global_stat / avg_denom, invert, {
+        const avg_stat = {
+          min: global_stat.min / avg_denom,
+          max: global_stat.max / avg_denom,
+        }
+        cells.push(build_cat_cell(row.sum / avg_denom, avg_stat, invert, {
           type: dir
         }))
 
@@ -729,8 +752,8 @@
         const row = get_cat_row(dir, main)
         const main_display = data.categories[main].name.display
         const cells = [`<td>${main_display}</td>`, '<td>Sum</td>']
-        const month_stat = cat_stats[dir].month.main
-        const global_stat = cat_stats[dir].global.main
+        const month_stat = cat_stats.resolve(dir, 'month', 'main')
+        const global_stat = cat_stats.resolve(dir, 'global', 'main')
 
         for (const [month, value] of row.months.entries()) {
           cells.push(build_cat_cell(value, month_stat, invert, {
@@ -745,7 +768,11 @@
           main
         }))
 
-        cells.push(build_cat_cell(row.sum / avg_denom, global_stat / avg_denom, invert, {
+        const avg_stat = {
+          min: global_stat.min / avg_denom,
+          max: global_stat.max / avg_denom,
+        }
+        cells.push(build_cat_cell(row.sum / avg_denom, avg_stat, invert, {
           type: dir,
           main
         }))
@@ -764,8 +791,8 @@
         const main_display = data.categories[main].name.display
         const sub_display = data.categories[main].subs[sub].display
         const cells = [`<td>${main_display}</td>`, `<td>${sub_display}</td>`]
-        const month_stat = cat_stats[dir].month.sub
-        const global_stat = cat_stats[dir].global.sub
+        const month_stat = cat_stats.resolve(dir, 'month', 'sub')
+        const global_stat = cat_stats.resolve(dir, 'global', 'sub')
 
         for (const [month, value] of row.months.entries()) {
           cells.push(build_cat_cell(value, month_stat, invert, {
@@ -782,7 +809,11 @@
           sub
         }))
 
-        cells.push(build_cat_cell(row.sum / avg_denom, global_stat / avg_denom, invert, {
+        const avg_stat = {
+          min: global_stat.min / avg_denom,
+          max: global_stat.max / avg_denom,
+        }
+        cells.push(build_cat_cell(row.sum / avg_denom, avg_stat, invert, {
           type: dir,
           main,
           sub
