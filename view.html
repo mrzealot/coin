@@ -71,7 +71,8 @@
       padding-right: 10px;
     }
 
-    table tbody td.center {
+    table td.center,
+    table th.center {
       text-align: center;
     }
 
@@ -124,6 +125,57 @@
     #acc-date.invalid {
       border-color: #E74C3C;
     }
+
+    #cat-table tr.dir-row {
+      font-weight: bold;
+      font-size: x-large;
+      border-width: 4px 0;
+    }
+
+    #cat-table tr.main-row {
+      font-weight: bold;
+      font-size: large;
+    }
+
+    #cat-table tr.main-row-in {
+      border-top: 3px solid #ddd;
+    }
+
+    #cat-table tr.main-row-ex {
+      border-bottom: 3px solid #ddd;
+    }
+
+    #cat-table tr.separator {
+      border-bottom: 8px solid #ddd;
+    }
+
+    #cat-table tr.sub-row div {
+      margin-left: 20px;
+    }
+
+    #cat-table tr:hover {
+      background-color: #505050;
+    }
+
+    #cat-table td {
+      padding: 0;
+      border: none;
+    }
+
+    #cat-table td div {
+      border: 2px solid transparent;
+      padding: 1px 8px;
+      cursor: pointer;
+    }
+
+    #cat-table td div:hover {
+      border-color: white;
+    }
+
+    #cat-table tr td:nth-of-type(15) {
+      border-left: 3px solid #ddd;
+    }
+
   </style>
 
 
@@ -159,20 +211,20 @@
           <tr>
             <th>Category</th>
             <th>Subcategory</th>
-            <th>Jan</th>
-            <th>Feb</th>
-            <th>Mar</th>
-            <th>Apr</th>
-            <th>May</th>
-            <th>Jun</th>
-            <th>Jul</th>
-            <th>Aug</th>
-            <th>Sep</th>
-            <th>Oct</th>
-            <th>Nov</th>
-            <th>Dec</th>
-            <th>Sum</th>
-            <th>Avg</th>
+            <th class="center">Jan</th>
+            <th class="center">Feb</th>
+            <th class="center">Mar</th>
+            <th class="center">Apr</th>
+            <th class="center">May</th>
+            <th class="center">Jun</th>
+            <th class="center">Jul</th>
+            <th class="center">Aug</th>
+            <th class="center">Sep</th>
+            <th class="center">Oct</th>
+            <th class="center">Nov</th>
+            <th class="center">Dec</th>
+            <th class="center">Sum</th>
+            <th class="center">Avg</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -460,7 +512,7 @@
           }
         }
       }
-      
+
       // gets a single cell's value
       const get_cat_sum = (granularity, dir, main, sub) => {
         console.log('get_cat_sum', granularity, dir, main, sub)
@@ -484,15 +536,13 @@
         }
       }
 
-      
+
 
       // gets a row's worth of values
       const get_cat_row = (dir, main, sub) => {
-        console.log('get_cat_row', dir, main, sub)
         const months = []
         for (let month = 0; month < 12; ++month) {
           months.push(get_cat_sum(month, dir, main, sub))
-          console.log('just calced', months[months.length - 1])
         }
         const sum = get_cat_sum('global', dir, main, sub)
         return {
@@ -505,12 +555,121 @@
       // format to thousands only
       const format_cat_number = (num) => {
         if (!num) return ''
-        console.log('format_cat_number', num, '-->', format_number(Math.round(num / 1000), false))
         return format_number(Math.round(num / 1000), false)
       }
 
-      const interpolate_color = (fraction, invert) => {
-        return 'transparent'
+      // 100 stop red-yellow-green gradient pre-generated
+      const gradient_stops = [
+        '#e74c3c',
+        '#e64d3b',
+        '#e64e3a',
+        '#e64f39',
+        '#e55138',
+        '#e55237',
+        '#e55337',
+        '#e55536',
+        '#e45635',
+        '#e45734',
+        '#e45933',
+        '#e35a33',
+        '#e35b32',
+        '#e35d31',
+        '#e35e30',
+        '#e25f2f',
+        '#e2612e',
+        '#e2622e',
+        '#e1632d',
+        '#e1652c',
+        '#e1662b',
+        '#e1672a',
+        '#e0692a',
+        '#e06a29',
+        '#e06b28',
+        '#df6d27',
+        '#df6e26',
+        '#df6f25',
+        '#df7125',
+        '#de7224',
+        '#de7323',
+        '#de7522',
+        '#dd7621',
+        '#dd7721',
+        '#dd7920',
+        '#dd7a1f',
+        '#dc7b1e',
+        '#dc7d1d',
+        '#dc7e1c',
+        '#db7f1c',
+        '#db811b',
+        '#db821a',
+        '#db8319',
+        '#da8518',
+        '#da8618',
+        '#da8717',
+        '#d98916',
+        '#d98a15',
+        '#d98b14',
+        '#d98c14',
+        '#d98d14',
+        '#d48d15',
+        '#d08d17',
+        '#cb8d19',
+        '#c78d1b',
+        '#c38d1d',
+        '#be8e1f',
+        '#ba8e20',
+        '#b68e22',
+        '#b18e24',
+        '#ad8e26',
+        '#a98e28',
+        '#a48f2a',
+        '#a08f2b',
+        '#9c8f2d',
+        '#978f2f',
+        '#938f31',
+        '#8f9033',
+        '#8a9035',
+        '#869036',
+        '#829038',
+        '#7d903a',
+        '#79903c',
+        '#75913e',
+        '#709140',
+        '#6c9142',
+        '#689143',
+        '#639145',
+        '#5f9247',
+        '#5b9249',
+        '#56924b',
+        '#52924d',
+        '#4e924e',
+        '#499250',
+        '#459352',
+        '#419354',
+        '#3c9356',
+        '#389358',
+        '#349359',
+        '#2f945b',
+        '#2b945d',
+        '#27945f',
+        '#229461',
+        '#1e9463',
+        '#1a9464',
+        '#159566',
+        '#119568',
+        '#0d956a',
+        '#08956c',
+        '#04956e',
+        '#009670'
+      ]
+
+      const interpolate_color = (value, max, invert) => {
+        let key = Math.round((value / max) * 100)
+        if (invert) key = 100 - key
+        if (key !== Math.round(key) || key < 0 || key > 100) {
+          throw 213
+        }
+        return gradient_stops[key]
       }
 
 
@@ -518,8 +677,8 @@
       const cat_tbody = cat_table.find('tbody')
 
       const build_cat_cell = (value, max, invert, filters) => {
-        const color = interpolate_color(value / max, invert)
-        const str = format_cat_number(value)
+        const color = interpolate_color(value, max, invert)
+        const str = format_cat_number(value) || '-'
         let filter_arr = []
         for (const [key, val] of Object.entries(filters)) {
           filter_arr.push(`data-filter-${key}="${val}"`)
@@ -527,10 +686,9 @@
         return `
           <td
             class="cat-cell right"
-            ${filter_arr.join(' ')}
-            style="background-color: ${color};"
+            ${filter_arr.join(' ')}"
           >
-            ${str}
+            <div style="background-color: ${color};">${str}</div>
           </td>
         `
       }
@@ -539,7 +697,7 @@
       const build_cat_dir = (dir) => {
         const invert = dir == 'ex'
         const row = get_cat_row(dir)
-        const cells = ['<td colspan="2">Sum</td>']
+        const cells = ['<td>Sum</td><td></td>']
         const month_stat = cat_stats[dir].month.dir
         const global_stat = cat_stats[dir].global.dir
 
@@ -559,7 +717,7 @@
         }))
 
         cat_tbody.append($(`
-          <tr>
+          <tr class="dir-row">
             ${cells.join('')}
           </tr>
         `))
@@ -593,7 +751,7 @@
         }))
 
         cat_tbody.append($(`
-          <tr>
+          <tr class="main-row main-row-${dir}">
             ${cells.join('')}
           </tr>
         `))
@@ -631,7 +789,7 @@
         }))
 
         cat_tbody.append($(`
-          <tr>
+          <tr class="sub-row">
             ${cells.join('')}
           </tr>
         `))
@@ -653,10 +811,11 @@
       }
 
       build_cat_half('in')
+      cat_tbody.find('tr:last-child').addClass('separator')
       build_cat_half('ex')
 
-      
-      
+
+
 
       // #endregion
 
