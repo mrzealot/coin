@@ -304,7 +304,8 @@ class Parser {
             const currency = acc.currency || this.context.currency
             const group = acc.group
             const init = parseFloat((acc.init+'').replace(',', '')) || 0
-            accs[name.id] = {name, currency, group, init}
+            const hidden = !!acc.hidden
+            accs[name.id] = {name, currency, group, init, hidden}
         }
         h.accounts = accs
         return h

@@ -938,8 +938,9 @@
       const acc_tbody = acc_table.find('tbody')
       // prep accounts by group
       const account_groups = {}
-      const no_group_key = '&ndash;'
+      const no_group_key = '&mdash;'
       for (const acc of Object.values(data.accounts)) {
+        if (acc.hidden) continue
         const key = acc.group || no_group_key
         account_groups[key] = account_groups[key] || []
         account_groups[key].push(acc)
