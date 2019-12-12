@@ -95,6 +95,12 @@
       font-size: large;
     }
 
+    #tx-sum-i-tr,
+    #tx-sum-e-tr {
+      font-size: smaller;
+      color: #ddd;
+    }
+
     #tx-sum-diff {
       font-size: larger;
       font-weight: bold;
@@ -186,6 +192,29 @@
       border-left: 3px solid #ddd;
     }
 
+    #cat-table tfoot {
+      border-top: 50px solid #222;
+      font-size: x-large;
+      font-weight: bold;
+    }
+
+    #cat-table tfoot td {
+      padding: 1px 8px;
+    }
+
+    #cat-table tfoot td.good {
+      background-color: #009670;
+    }
+
+    #cat-table tfoot td.meh {
+      background-color: #D98D14;
+    }
+
+    #cat-table tfoot td.bad {
+      background-color: #E74C3C;
+    }
+
+
     #nav-overview {
       padding: 30px 100px;
     }
@@ -241,6 +270,12 @@
           </tr>
         </thead>
         <tbody></tbody>
+        <tfoot>
+          <tr>
+            <td>Diff</td>
+            <td></td>
+          </tr>
+        </tfoot>
       </table>
     </div>
 
@@ -299,8 +334,8 @@
       </table>
       <div id="tx-pos" class="tx-bottom-text"></div>
       <div id="tx-sum" class="tx-bottom-text">
-        <span id="tx-sum-i"></span> -
-        <span id="tx-sum-e"></span> =
+        <span id="tx-sum-i"></span><span id="tx-sum-i-tr"></span> -
+        <span id="tx-sum-e"></span><span id="tx-sum-e-tr"></span> =
         <span id="tx-sum-diff"></span>
       </div>
     </div>
@@ -531,7 +566,7 @@
         ++index
       }
 
-      
+
 
       // visualization
       const chart_ctx = $('#chart')
@@ -930,6 +965,29 @@
       cat_tbody.find('tr:last-child').addClass('separator')
       build_cat_half('ex')
 
+      // build diffs at the bottom
+      const cat_foot = cat_table.find('tfoot tr')
+      const build_cat_diff_cell = (incoming, expense) => {
+        const diff = incoming - expense
+        let color = 'good'
+        if (diff < 0) {
+          color = 'bad'
+        } else if (diff < 0.2 * incoming) {
+          color = 'meh'
+        }
+        cat_foot.append(`<td class="right ${color}">${format_cat_number(diff)}</td>`)
+      }
+      const build_cat_diffs = () => {
+        for (let month = 0; month < 12; ++month) {
+          build_cat_diff_cell(get_cat_sum(month, 'in'), get_cat_sum(month, 'ex'))
+        }
+        const global_in = get_cat_sum('global', 'in')
+        const global_ex = get_cat_sum('global', 'ex')
+        build_cat_diff_cell(global_in, global_ex)
+        build_cat_diff_cell(global_in / avg_denom, global_ex / avg_denom)
+      }
+      build_cat_diffs()
+
       // #endregion
 
       // #region Account Sums
@@ -991,15 +1049,17 @@
       const tx_tbody = tx_table.find('tbody')
       for (const tx of data.transactions) {
         const audited = (data.audit && moment(data.audit).isSameOrAfter(tx.date))
+        const from_title = tx.from.amount == tx.from.converted ? '' : `title="${format_number(tx.from.converted, false)}"`
+        const to_title = tx.to.amount == tx.to.converted ? '' : `title="${format_number(tx.to.converted, false)}"`
         tx_tbody.append(`
           <tr>
             <td class="center${audited ? ' audited' : ''}">${tx.date}</td>
             <td>${tx.mark}</td>
             <td>${tx.comment}</td>
             <td class="center type-${tx.type.toLowerCase()}">${tx.type}</td>
-            <td class="right" data-converted="${tx.from.converted}">${tx.from.amount}</td>
+            <td class="right" data-converted="${tx.from.converted}" ${from_title}>${tx.from.amount}</td>
             <td>${tx.from.account.display}</td>
-            <td class="right" data-converted="${tx.to.converted}">${tx.to.amount}</td>
+            <td class="right" data-converted="${tx.to.converted}" ${to_title}>${tx.to.amount}</td>
             <td>${tx.to.account.display}</td>
             <td>${tx.category.main.display}</td>
             <td>${tx.category.sub.display}</td>
@@ -1009,7 +1069,9 @@
 
       const tx_pos = $('#tx-pos')
       const tx_sum_i = $('#tx-sum-i')
+      const tx_sum_i_tr = $('#tx-sum-i-tr')
       const tx_sum_e = $('#tx-sum-e')
+      const tx_sum_e_tr = $('#tx-sum-e-tr')
       const tx_sum_diff = $('#tx-sum-diff')
       const dt = tx_table.DataTable({
         order: [[0, "desc"]],
@@ -1038,12 +1100,17 @@
         // custom bottom info
         infoCallback: (settings, start, end, max, total, pre) => {
           const dt = new $.fn.dataTable.Api(settings)
-          let expense = 0, incoming = 0
+          let expense = 0, incoming = 0, tr_expense = 0, tr_incoming = 0
           dt.rows({ filter: 'applied' }).every(function () {
             const row = $(this.node()).children('td')
-            if ($(row[3]).html() == 'TR') return
-            expense += parseFloat($(row[4]).data('converted'))
-            incoming += parseFloat($(row[6]).data('converted'))
+            const e = parseFloat($(row[4]).data('converted'))
+            const i = parseFloat($(row[6]).data('converted'))
+            tr_expense += e
+            tr_incoming += i
+            if ($(row[3]).html() != 'TR') {
+              expense += e
+              incoming += i
+            }
           })
 
           const end_str = end != start ? `-${end}` : ''
@@ -1051,7 +1118,13 @@
 
           tx_pos.html(`${start}${end_str}/${total}${max_str}`)
           tx_sum_i.html(format_number(incoming, false))
+          if (incoming != tr_incoming) {
+            tx_sum_i_tr.html(` (${format_number(tr_incoming, false)})`)
+          }
           tx_sum_e.html(format_number(expense, false))
+          if (expense != tr_expense) {
+            tx_sum_e_tr.html(` (${format_number(tr_expense, false)})`)
+          }
           tx_sum_diff.html(format_number(incoming - expense, false))
         }
       })
