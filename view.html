@@ -363,6 +363,8 @@
 
   <script>
 
+    (async () => {
+
     // #region Data Source
 
     data = INSERT_DATA_HERE
@@ -378,21 +380,20 @@
 
     // #region Currency Exchange
 
-    // const exchange = await (async () => {
-    //   const base = display_currency
-    //   const currs = new Set()
-    //   for (const [, acc] of Object.entries(data.accounts)) {
-    //     if (acc.currency) {
-    //       currs.add(acc.currency)
-    //     }
-    //   }
-    //   const symbols = [...currs].join(',')
-    //   const api = `https://api.exchangeratesapi.io/latest?base=${base}&symbols=${symbols}`
-    //   return await $.getJSON(api)
-    // })()
+    const get_exchange_rates = async () => {
+      const base = display_currency
+      const currs = new Set()
+      for (const [, acc] of Object.entries(data.accounts)) {
+        if (acc.currency) {
+          currs.add(acc.currency)
+        }
+      }
+      const symbols = [...currs].join(',')
+      const api = `https://api.exchangeratesapi.io/latest?base=${base}&symbols=${symbols}`
+      return await $.getJSON(api)
+    }
+    const exchange = await get_exchange_rates()
 
-    // use this actual response temporarily until development/testing is done
-    exchange = { "rates": { "EUR": 0.0030158634, "USD": 0.0033400688, "GBP": 0.0025392062 }, "base": "HUF", "date": "2019-12-09" }
     exchange.calculate = (amount, from, to) => {
       if (from != exchange.base) {
         amount /= exchange.rates[from]
@@ -1293,6 +1294,8 @@
       // #endregion
 
     })
+
+    })()
 
   </script>
 </body>
