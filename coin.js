@@ -308,6 +308,26 @@ class Parser {
             accs[name.id] = {name, currency, group, init, hidden}
         }
         h.accounts = accs
+
+        const labels = {}
+        for (const l of h.labels) {
+            const name = this.name(l.name)
+            const incoming = !!l.incoming
+            const cats = []
+            for (const c of l.cats) {
+                if (c.endsWith('*')) {
+                    const main = c.split('/')[0]
+                    for (const sub of Object.keys(h.categories[main].subs)) {
+                        cats.push(`${main}/${sub}`)
+                    }
+                } else {
+                    cats.push(c)
+                }
+            }
+            labels[name.id] = {name, incoming, cats}
+        }
+        h.labels = labels
+
         return h
     }
 

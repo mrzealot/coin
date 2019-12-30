@@ -463,6 +463,19 @@
         c.global[dir].sum += amount
         c.global[dir][main].sum += amount
         c.global[dir][main][sub] += amount
+
+        // summarize labels
+        for (const [label_name, label] of Object.entries(data.labels)) {
+          if (label.cats.includes(`${main}/${sub}`)) {
+            c.month[month].label = c.month[month].label || {}
+            c.month[month].label[label_name] = c.month[month].label[label_name] || 0
+            c.month[month].label[label_name] += amount
+
+            c.global.label = c.global.label || {}
+            c.global.label[label_name] = c.global.label[label_name] || 0
+            c.global.label[label_name] += amount
+          }
+        }
       }
     }
 
@@ -948,9 +961,41 @@
         `))
       }
 
+      const build_cat_labels = (dir) => {
+        const invert = dir == 'ex'
+        const global_stat = cat_stats.resolve(dir, 'global', 'dir')
+        const month_stat = cat_stats.resolve(dir, 'month', 'dir')
+        const avg_stat = {
+          min: global_stat.min / avg_denom,
+          max: global_stat.max / avg_denom,
+        }
+
+        for (const [label_name, label] of Object.entries(data.labels)) {
+          if ((!!label.incoming) != (!invert)) continue
+
+          const cells = [`<td>Group</td><td>${label.name.display}</td>`]
+
+          for (let month = 0; month < 12; ++month) {
+            const value = data.category_sums.month[month].label[label_name]
+            cells.push(build_cat_cell(value, month_stat, invert, {}))
+          }
+          const sum = data.category_sums.global.label[label_name]
+          cells.push(build_cat_cell(sum, global_stat, invert, {}))
+          cells.push(build_cat_cell(sum / avg_denom, avg_stat, invert, {}))
+  
+          cat_tbody.append($(`
+            <tr class="label-row">
+              ${cells.join('')}
+            </tr>
+          `))
+        }
+
+      }
+
       const build_cat_half = (dir) => {
         const invert = dir == 'in'
         if (invert) build_cat_dir(dir)
+        if (invert) build_cat_labels(dir)
         for (const main of Object.values(data.categories)) {
           if ((dir == 'in' && !main.incoming) || (dir == 'ex' && main.incoming)) continue
           if (invert) build_cat_main(dir, main.name.id)
@@ -959,6 +1004,7 @@
           }
           if (!invert) build_cat_main(dir, main.name.id)
         }
+        if (!invert) build_cat_labels(dir)
         if (!invert) build_cat_dir(dir)
       }
 
