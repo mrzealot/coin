@@ -303,7 +303,7 @@ class Parser {
             const name = this.name(acc.name)
             const currency = acc.currency || this.context.currency
             const group = acc.group
-            const init = parseFloat((acc.init+'').replace(',', '')) || 0
+            const init = parseFloat((acc.init+'').replace(/,/g, '')) || 0
             const hidden = !!acc.hidden
             accs[name.id] = {name, currency, group, init, hidden}
         }

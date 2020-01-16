@@ -479,6 +479,29 @@
       }
     }
 
+    const get_cat_sum = (granularity, dir, main, sub) => {
+      let target
+      if (granularity == 'global') {
+        target = data.category_sums.global[dir]
+      } else {
+        target = data.category_sums.month[granularity]
+        if (!target) return 0
+        target = target[dir]
+      }
+      if (!target) return 0
+      if (main) {
+        target = target[main]
+        if (!target) return 0
+        if (sub) {
+          return target[sub] || 0
+        } else {
+          return target.sum || 0
+        }
+      } else {
+        return target.sum || 0
+      }
+    }
+
     // #endregion
 
     // #region Helper Functions
@@ -552,8 +575,8 @@
       // monthly incoming
       const incoming_values = []
       for (let month = 0; month < 12; ++month) {
-        const inc = data.category_sums.month[month].in
-        incoming_values.push(inc ? Math.round(inc.sum) : 0)
+        const inc = get_cat_sum(month, 'in')
+        incoming_values.push(Math.round(inc))
       }
       chart_datasets.push({
         label: 'Income',
@@ -568,8 +591,8 @@
         if (cat.incoming) continue
         const values = []
         for (let month = 0; month < 12; ++month) {
-          const expenses = data.category_sums.month[month].ex
-          values.push(expenses && expenses[cat.name.id] ? Math.round(expenses[cat.name.id].sum) : 0)
+          const expenses = get_cat_sum(month, 'ex', cat.name.id)
+          values.push(Math.round(expenses))
         }
         const chart_index = index % chart_colors.length
         chart_datasets.push({
@@ -618,6 +641,7 @@
           global: { dir: [], main: [], sub: [] }
         },
         percentile: (arr, perc) => {
+          if (!arr.length) return 0
           const index = (perc / 100) * arr.length
           if (Math.floor(index) == index) {
             return (arr[index - 1] + arr[index]) / 2
@@ -636,7 +660,7 @@
           return target.cached
         }
       }
-      for (const [dir, dir_data] of Object.entries(data.category_sums.global)) {
+      for (const [dir, dir_data] of Object.entries(data.category_sums.global || {})) {
         for (const [main, main_data] of Object.entries(dir_data)) {
           if (main == 'sum') {
             cat_stats[dir].global.dir.push(main_data)
@@ -652,7 +676,7 @@
         }
       }
       for (let month = 0; month < 12; ++month) {
-        for (const [dir, dir_data] of Object.entries(data.category_sums.month[month])) {
+        for (const [dir, dir_data] of Object.entries(data.category_sums.month[month] || {})) {
           for (const [main, main_data] of Object.entries(dir_data)) {
             if (main == 'sum') {
               cat_stats[dir].month.dir.push(main_data)
@@ -666,28 +690,6 @@
               }
             }
           }
-        }
-      }
-
-      // gets a single cell's value
-      const get_cat_sum = (granularity, dir, main, sub) => {
-        let target
-        if (granularity == 'global') {
-          target = data.category_sums.global[dir]
-        } else {
-          target = data.category_sums.month[granularity][dir]
-        }
-        if (!target) return 0
-        if (main) {
-          target = target[main]
-          if (!target) return 0
-          if (sub) {
-            return target[sub] || 0
-          } else {
-            return target.sum || 0
-          }
-        } else {
-          return target.sum || 0
         }
       }
 
@@ -976,7 +978,8 @@
           const cells = [`<td>Group</td><td>${label.name.display}</td>`]
 
           for (let month = 0; month < 12; ++month) {
-            const value = data.category_sums.month[month].label[label_name]
+            let value = data.category_sums.month[month]
+            value = value ? value.label[label_name] : 0
             cells.push(build_cat_cell(value, month_stat, invert, {}))
           }
           const sum = data.category_sums.global.label[label_name]
