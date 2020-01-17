@@ -490,10 +490,10 @@ class Commander {
     if (commander.needs_input()) {
         // parse input
         let input = ''
-        if (config.input) {
-            input = config.input
-        } else if (args.input || args.i) {
+        if (args.input || args.i) {
             input = args.input || args.i
+        } else if (config.input) {
+            input = config.input
         } else {
             usage('Missing input...')
         }
