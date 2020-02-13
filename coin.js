@@ -175,9 +175,9 @@ class Parser {
             }
             
         // double number, should be this year
-        } else if (d.match(/^\d+[.-_/]\d+$/)) {
-            const [month, day]= d.split(/[.-_/]/)
-            result = moment([now.year(), parseInt(month), parseInt(day)])
+        } else if (d.match(/^\d+[.\-_/]\d+$/)) {
+            const [month, day]= d.split(/[.\-_/]/)
+            result = moment([now.year(), parseInt(month) - 1, parseInt(day)])
     
         // otherwise should parse on its own
         } else {
