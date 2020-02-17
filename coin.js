@@ -141,7 +141,7 @@ class Parser {
 
     amount(n) {
         try {
-            return parseFloat((n+'').replace(',', ''))
+            return parseFloat((n+'').replace(/,/g, ''))
         } catch (ex) {
             throw new Error(`Invalid amount ${n} on line ${this.lineno} (${ex})`)
         }

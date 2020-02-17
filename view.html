@@ -975,7 +975,7 @@
         for (const [label_name, label] of Object.entries(data.labels)) {
           if ((!!label.incoming) != (!invert)) continue
 
-          const cells = [`<td>Group</td><td>${label.name.display}</td>`]
+          const cells = [`<td>Label</td><td>${label.name.display}</td>`]
 
           for (let month = 0; month < 12; ++month) {
             let value = data.category_sums.month[month]
