@@ -31,7 +31,6 @@ const usage = (msg = '', code = 1) => {
     console.log(`coin (d)ump filename -- dump the internal representation`)
     console.log()
     console.log(`coin (v)iew -- dump and open an html based view`)
-    console.log(`  -r/--resolve -- also resolve before viewing`)
     console.log(`  -n/--noopen -- just dump the html view, don't open`)
     process.exit(code)
 }
@@ -458,9 +457,7 @@ class Commander {
         html = html.replace('INSERT_DATA_HERE', JSON.stringify(this.data, null, '    '))
         const output = path.join(os.tmpdir(), 'coin_view.html')
         fs.writeFileSync(output, html)
-        if (this.args.resolve || this.args.r) {
-            this.resolve()
-        }
+        this.resolve()
         if (!this.args.noopen && !this.args.n) open(output)
     }
 
