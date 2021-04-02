@@ -371,6 +371,7 @@
 
     const default_currency = data.currency
     const display_currency = data.display_currency || default_currency
+    const access_key = INSERT_EXCHANGE_HERE
 
     const data_year = moment(data.transactions[0].date).year()
     const current_year = moment().year()
@@ -383,13 +384,14 @@
     const get_exchange_rates = async () => {
       const base = display_currency
       const currs = new Set()
+      currs.add(base)
       for (const [, acc] of Object.entries(data.accounts)) {
         if (acc.currency) {
           currs.add(acc.currency)
         }
       }
       const symbols = [...currs].join(',')
-      const api = `https://api.exchangeratesapi.io/latest?base=${base}&symbols=${symbols}`
+      const api = `http://api.exchangeratesapi.io/v1/latest?access_key=${access_key}&symbols=${symbols}`
       return await $.getJSON(api)
     }
     const exchange = await get_exchange_rates()
@@ -979,7 +981,7 @@
 
           for (let month = 0; month < 12; ++month) {
             let value = data.category_sums.month[month]
-            value = value ? value.label[label_name] : 0
+            value = value && value.label && value.label[label_name] || 0
             cells.push(build_cat_cell(value, month_stat, invert, {}))
           }
           const sum = data.category_sums.global.label[label_name]

@@ -455,6 +455,7 @@ class Commander {
     view() {
         let html = fs.readFileSync(path.join(__dirname, 'view.html'), 'utf8')
         html = html.replace('INSERT_DATA_HERE', JSON.stringify(this.data, null, '    '))
+        html = html.replace('INSERT_EXCHANGE_HERE', JSON.stringify(this.config_data.exchange, null, '    '))
         const output = path.join(os.tmpdir(), 'coin_view.html')
         fs.writeFileSync(output, html)
         this.resolve()
