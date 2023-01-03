@@ -373,7 +373,8 @@
     const display_currency = data.display_currency || default_currency
     const access_key = INSERT_EXCHANGE_HERE
 
-    const data_year = moment(data.transactions[0].date).year()
+    const data_year_raw = data.transactions.length ? data.transactions[0].date : 'now'
+    const data_year = moment(data_year_raw).year()
     const current_year = moment().year()
     const is_current = data_year == current_year
 
@@ -484,9 +485,10 @@
     const get_cat_sum = (granularity, dir, main, sub) => {
       let target
       if (granularity == 'global') {
-        target = data.category_sums.global[dir]
+        target = data.category_sums.global && data.category_sums.global[dir] || null
+        if (!target) return 0
       } else {
-        target = data.category_sums.month[granularity]
+        target = data.category_sums.month && data.category_sums.month[granularity] || null
         if (!target) return 0
         target = target[dir]
       }
@@ -678,7 +680,8 @@
         }
       }
       for (let month = 0; month < 12; ++month) {
-        for (const [dir, dir_data] of Object.entries(data.category_sums.month[month] || {})) {
+        const month_obj = data.category_sums.month && data.category_sums.month[month] || {}
+        for (const [dir, dir_data] of Object.entries(month_obj)) {
           for (const [main, main_data] of Object.entries(dir_data)) {
             if (main == 'sum') {
               cat_stats[dir].month.dir.push(main_data)
@@ -980,11 +983,11 @@
           const cells = [`<td>Label</td><td>${label.name.display}</td>`]
 
           for (let month = 0; month < 12; ++month) {
-            let value = data.category_sums.month[month]
+            let value = data.category_sums.month && data.category_sums.month[month] || 0
             value = value && value.label && value.label[label_name] || 0
             cells.push(build_cat_cell(value, month_stat, invert, {}))
           }
-          const sum = data.category_sums.global.label[label_name]
+          const sum = data && data.category_sums && data.category_sums.global && data.category_sums.global.label && data.category_sums.global.label[label_name] || 0
           cells.push(build_cat_cell(sum, global_stat, invert, {}))
           cells.push(build_cat_cell(sum / avg_denom, avg_stat, invert, {}))
   
