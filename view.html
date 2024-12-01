@@ -393,7 +393,12 @@
       }
       const symbols = [...currs].join(',')
       const api = `http://api.exchangeratesapi.io/v1/latest?access_key=${access_key}&symbols=${symbols}`
-      return await $.getJSON(api)
+      try {
+        return await $.getJSON(api)
+      } catch {
+        // TODO
+        return JSON.parse('{"success":true,"timestamp":1691509923,"base":"EUR","date":"2023-08-08","rates":{"HUF":412,"EUR":1}}')
+      }
     }
     const exchange = await get_exchange_rates()
 
